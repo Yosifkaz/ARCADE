@@ -1,4 +1,4 @@
-// Neon Sky Fighters, standalone build with local background music and basic touch support
+// Neon Sky Fighters – desktop + mobile (touch) build
 (function () {
   // Reset DOM
   document.head.innerHTML = "";
@@ -20,6 +20,7 @@
       color: #fff;
       user-select: none;
       cursor: crosshair;
+      touch-action: none;
     }
     #hud {
       position: fixed;
@@ -33,6 +34,7 @@
       font-size: 13px;
       pointer-events: none;
       min-width: 240px;
+      z-index: 5;
     }
     #hud .line {
       margin-top: 4px;
@@ -82,6 +84,7 @@
       box-shadow: 0 0 18px rgba(0,0,0,0.9);
       pointer-events: none;
       white-space: nowrap;
+      z-index: 5;
     }
     #centerMessage {
       position: fixed;
@@ -92,6 +95,7 @@
       pointer-events: none;
       text-shadow: 0 0 20px rgba(0,0,0,0.9);
       max-width: 540px;
+      z-index: 4;
     }
     #centerMessage .title {
       font-size: 32px;
@@ -123,6 +127,7 @@
       white-space: nowrap;
       opacity: 0;
       transition: opacity 0.2s ease-out;
+      z-index: 6;
     }
     #upgradeToast .en {
       display: block;
@@ -291,8 +296,90 @@
       opacity: 0.6;
       margin-top: 8px;
     }
+
+    /* MOBILE TOUCH CONTROLS */
+    #mobileControls {
+      position: fixed;
+      inset: 0;
+      z-index: 7;
+      pointer-events: auto;
+    }
+    #mc-joystick-area,
+    #mc-buttons-area {
+      position: absolute;
+      bottom: 0;
+      height: 45%;
+    }
+    #mc-joystick-area {
+      left: 0;
+      width: 55%;
+    }
+    #mc-buttons-area {
+      right: 0;
+      width: 45%;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 18px;
+      padding-bottom: 18px;
+    }
+    #mc-joy-base,
+    #mc-joy-stick {
+      position: absolute;
+      border-radius: 999px;
+      transform: translate(-50%, -50%);
+      transition: opacity 0.12s ease-out;
+    }
+    #mc-joy-base {
+      width: 120px;
+      height: 120px;
+      border: 2px solid rgba(148,163,184,0.9);
+      background: rgba(15,23,42,0.65);
+      box-shadow: 0 0 22px rgba(15,23,42,0.9);
+    }
+    #mc-joy-stick {
+      width: 60px;
+      height: 60px;
+      border: 2px solid rgba(59,130,246,0.95);
+      background: rgba(37,99,235,0.9);
+      box-shadow: 0 0 24px rgba(59,130,246,0.9);
+    }
+    .mc-btn {
+      pointer-events: auto;
+      width: 78px;
+      height: 78px;
+      border-radius: 999px;
+      border: 2px solid rgba(148,163,184,0.9);
+      background: radial-gradient(circle at 30% 30%, rgba(248,250,252,0.9), rgba(37,99,235,0.2));
+      color: #e5e7eb;
+      font-weight: 700;
+      font-size: 14px;
+      text-shadow: 0 0 10px rgba(15,23,42,0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 26px rgba(15,23,42,0.9);
+      user-select: none;
+    }
+    .mc-btn:active {
+      transform: scale(0.96);
+      box-shadow: 0 0 18px rgba(37,99,235,0.9);
+    }
+
+    @media (hover: none) and (pointer: coarse) {
+      #leaderboardBR {
+        display: none;
+      }
+      #hint {
+        bottom: 90px;
+        font-size: 12px;
+      }
+    }
   `;
   document.head.appendChild(style);
+
+  const isTouchDevice =
+    ("ontouchstart" in window) || (navigator.maxTouchPoints && navigator.maxTouchPoints > 0);
 
   const HS_KEY = "NSF_HS_V2";
   const TUTORIAL_KEY = "NSF_TUTORIAL_DONE";
@@ -312,10 +399,11 @@
       combo: "Combo",
       hp: "HP",
       altFire: "Alt Fire",
-      hint: "W A S D move, mouse aim, LMB shoot, RMB/Q Alt Fire, Shift dash, ESC pause, R restart.",
+      hint:
+        "PC: W A S D move, mouse aim, LMB shoot, RMB/Q Alt Fire, Shift dash, ESC pause, R restart. Mobile: left joystick move, FIRE / ALT buttons to shoot.",
       introTitle: "NEON SKY FIGHTERS",
       introSubtitle: "First sortie, learn the basics then survive and evolve your jet.",
-      introSmall: "Click anywhere to arm your jet and begin.",
+      introSmall: "Click or tap anywhere to arm your jet and begin.",
       pausedTitle: "Paused",
       pausedSubtitle: "Game is paused. Adjust settings or resume.",
       resume: "Resume",
@@ -346,7 +434,7 @@
       gameOverTitle: score => `YOU WERE SHOT DOWN`,
       gameOverSubtitle: (score, level, combo) =>
         `Final score: ${score.toFixed(0)}, level ${level}, best combo ${combo.toFixed(0)}.`,
-      gameOverSmall: "Press R to restart your sortie.",
+      gameOverSmall: "Press R (PC) or refresh to restart your sortie.",
       lbTitle: "Local Leaderboard"
     },
     ar: {
@@ -355,10 +443,11 @@
       combo: "السلسلة",
       hp: "الصحة",
       altFire: "الهجوم البديل",
-      hint: "الحركة WASD، التصويب بالماوس، إطلاق بالنقر الأيسر، بديل بالنقر الأيمن/Q، اندفاعة Shift، إيقاف مؤقت ESC، إعادة R.",
+      hint:
+        "الكمبيوتر: الحركة WASD، التصويب بالماوس، إطلاق بالأيسر، هجوم بديل بالزر الأيمن/Q، اندفاعة Shift، إيقاف ESC، إعادة R. الجوال: عصا يسار للحركة، أزرار FIRE/ALT للإطلاق.",
       introTitle: "NEON SKY FIGHTERS",
       introSubtitle: "أول طلعة، تعلّم الأساسيات ثم حاول البقاء وطوّر طائرتك.",
-      introSmall: "انقر في أي مكان لتسليح الطائرة والبدء.",
+      introSmall: "انقر أو المس أي مكان لتسليح الطائرة والبدء.",
       pausedTitle: "إيقاف مؤقت",
       pausedSubtitle: "اللعبة متوقفة مؤقتاً. يمكنك تغيير الإعدادات أو المتابعة.",
       resume: "استئناف",
@@ -389,7 +478,7 @@
       gameOverTitle: score => `تم إسقاط طائرتك`,
       gameOverSubtitle: (score, level, combo) =>
         `النتيجة النهائية: ${score.toFixed(0)}، المستوى ${level}، أفضل سلسلة ${combo.toFixed(0)}.`,
-      gameOverSmall: "اضغط R لبدء طلعة جديدة.",
+      gameOverSmall: "اضغط R على الكمبيوتر أو أعد تحميل الصفحة لبدء طلعة جديدة.",
       lbTitle: "لوحة المتصدرين المحلية"
     }
   };
@@ -475,7 +564,7 @@
   const labelHp = document.getElementById("labelHp");
   const labelAlt = document.getElementById("labelAlt");
 
-  // bottom right leaderboard
+  // bottom-right leaderboard
   const leaderboardBR = document.createElement("div");
   leaderboardBR.id = "leaderboardBR";
   leaderboardBR.innerHTML = `
@@ -521,6 +610,180 @@
     }
   });
 
+  // mobile controls state
+  const touchState = {
+    using: isTouchDevice,
+    joyTouchId: null,
+    joyStartX: 0,
+    joyStartY: 0,
+    joyVectorX: 0,
+    joyVectorY: 0,
+    joyActive: false
+  };
+
+  if (isTouchDevice) {
+    const mobileControlsRoot = document.createElement("div");
+    mobileControlsRoot.id = "mobileControls";
+    mobileControlsRoot.innerHTML = `
+      <div id="mc-joystick-area"></div>
+      <div id="mc-buttons-area">
+        <div id="mc-btn-fire" class="mc-btn">FIRE</div>
+        <div id="mc-btn-alt" class="mc-btn">ALT</div>
+      </div>
+      <div id="mc-joy-base"></div>
+      <div id="mc-joy-stick"></div>
+    `;
+    document.body.appendChild(mobileControlsRoot);
+
+    const joyAreaEl = document.getElementById("mc-joystick-area");
+    const joyBaseEl = document.getElementById("mc-joy-base");
+    const joyStickEl = document.getElementById("mc-joy-stick");
+    const btnFireEl = document.getElementById("mc-btn-fire");
+    const btnAltEl = document.getElementById("mc-btn-alt");
+
+    const joyMaxRadius = 48;
+    joyBaseEl.style.opacity = "0";
+    joyStickEl.style.opacity = "0";
+
+    function joyStart(ev) {
+      const t = ev.changedTouches[0];
+      touchState.joyTouchId = t.identifier;
+      touchState.joyStartX = t.clientX;
+      touchState.joyStartY = t.clientY;
+      touchState.joyVectorX = 0;
+      touchState.joyVectorY = 0;
+      touchState.joyActive = true;
+
+      joyBaseEl.style.left = `${t.clientX}px`;
+      joyBaseEl.style.top = `${t.clientY}px`;
+      joyStickEl.style.left = `${t.clientX}px`;
+      joyStickEl.style.top = `${t.clientY}px`;
+      joyBaseEl.style.opacity = "1";
+      joyStickEl.style.opacity = "1";
+    }
+
+    function joyMove(ev) {
+      for (const t of ev.changedTouches) {
+        if (t.identifier === touchState.joyTouchId) {
+          const dx = t.clientX - touchState.joyStartX;
+          const dy = t.clientY - touchState.joyStartY;
+          const dist = Math.hypot(dx, dy);
+          if (dist > 0) {
+            const clamped = Math.min(dist, joyMaxRadius);
+            const nx = dx / dist;
+            const ny = dy / dist;
+            touchState.joyVectorX = (clamped / joyMaxRadius) * nx;
+            touchState.joyVectorY = (clamped / joyMaxRadius) * ny;
+            joyStickEl.style.left = `${touchState.joyStartX + nx * clamped}px`;
+            joyStickEl.style.top = `${touchState.joyStartY + ny * clamped}px`;
+          } else {
+            touchState.joyVectorX = 0;
+            touchState.joyVectorY = 0;
+            joyStickEl.style.left = `${touchState.joyStartX}px`;
+            joyStickEl.style.top = `${touchState.joyStartY}px`;
+          }
+          break;
+        }
+      }
+    }
+
+    function joyEnd(ev) {
+      for (const t of ev.changedTouches) {
+        if (t.identifier === touchState.joyTouchId) {
+          touchState.joyTouchId = null;
+          touchState.joyActive = false;
+          touchState.joyVectorX = 0;
+          touchState.joyVectorY = 0;
+          joyBaseEl.style.opacity = "0";
+          joyStickEl.style.opacity = "0";
+          break;
+        }
+      }
+    }
+
+    joyAreaEl.addEventListener(
+      "touchstart",
+      e => {
+        e.preventDefault();
+        if (touchState.joyTouchId == null) {
+          joyStart(e);
+        }
+      },
+      { passive: false }
+    );
+
+    window.addEventListener(
+      "touchmove",
+      e => {
+        if (touchState.joyTouchId != null) {
+          e.preventDefault();
+          joyMove(e);
+        }
+      },
+      { passive: false }
+    );
+
+    window.addEventListener(
+      "touchend",
+      e => {
+        if (touchState.joyTouchId != null) {
+          e.preventDefault();
+          joyEnd(e);
+        }
+      },
+      { passive: false }
+    );
+
+    window.addEventListener(
+      "touchcancel",
+      e => {
+        if (touchState.joyTouchId != null) {
+          e.preventDefault();
+          joyEnd(e);
+        }
+      },
+      { passive: false }
+    );
+
+    btnFireEl.addEventListener(
+      "touchstart",
+      e => {
+        e.preventDefault();
+        ensureAudio();
+        input.mouseDown = true;
+        startRun();
+      },
+      { passive: false }
+    );
+    btnFireEl.addEventListener(
+      "touchend",
+      e => {
+        e.preventDefault();
+        input.mouseDown = false;
+      },
+      { passive: false }
+    );
+
+    btnAltEl.addEventListener(
+      "touchstart",
+      e => {
+        e.preventDefault();
+        ensureAudio();
+        input.altFire = true;
+        startRun();
+      },
+      { passive: false }
+    );
+    btnAltEl.addEventListener(
+      "touchend",
+      e => {
+        e.preventDefault();
+        input.altFire = false;
+      },
+      { passive: false }
+    );
+  }
+
   function applyLanguageTextsIntro() {
     const t = TEXT[lang];
     if (tutorialMode) {
@@ -536,8 +799,8 @@
           Shift – Dash / اندفاعة<br>
           ESC – Pause / إيقاف مؤقت<br>
           R – Restart / إعادة<br><br>
-          Collect glowing orbs to upgrade your jet, face waves and bosses every few levels.<br>
-          اجمع الكرات المضيئة للحصول على ترقيات وواجه موجات وزعماء كل عدة مستويات.<br><br>
+          On phones: left joystick to move, FIRE / ALT buttons to shoot and use alt fire.<br>
+          على الجوال: عصا يسار للحركة، وأزرار FIRE / ALT للإطلاق والهجوم البديل.<br><br>
           ${t.introSmall}
         </div>
       `;
@@ -564,7 +827,7 @@
     labelLanguage.textContent = t.language;
     labelVolume.textContent = t.volume;
     labelMusic.textContent = t.music;
-    btnLang.textContent = (lang === "en") ? t.languageValueEn : t.languageValueAr;
+    btnLang.textContent = lang === "en" ? t.languageValueEn : t.languageValueAr;
     leaderboardTitleEl.textContent = t.lbTitle;
   }
 
@@ -606,7 +869,7 @@
   resize();
 
   function clamp(v, min, max) {
-    return v < min ? min : (v > max ? max : v);
+    return v < min ? min : v > max ? max : v;
   }
 
   // High score helpers
@@ -665,7 +928,7 @@
   let sfxVolume = 0.5;
   let musicVolume = 0.35;
 
-  // Local background music from assets folder
+  // Local background music
   const MUSIC_URL = "assets/spaceship-arcade.mp3";
   const bgm = document.createElement("audio");
   bgm.id = "bgm";
@@ -695,11 +958,14 @@
 
     // Start BGM on first user-initiated audio setup
     if (!bgmStarted) {
-      bgm.play().then(() => {
-        bgmStarted = true;
-      }).catch(err => {
-        console.log("BGM play blocked:", err);
-      });
+      bgm
+        .play()
+        .then(() => {
+          bgmStarted = true;
+        })
+        .catch(err => {
+          console.log("BGM play blocked:", err);
+        });
     }
   }
 
@@ -774,45 +1040,6 @@
     mouse.y = e.clientY;
   });
 
-  // Basic touch support for phones
-  window.addEventListener(
-    "touchstart",
-    e => {
-      const t = e.touches[0];
-      if (t) {
-        mouse.x = t.clientX;
-        mouse.y = t.clientY;
-      }
-      input.mouseDown = true;
-      startRun();
-      e.preventDefault();
-    },
-    { passive: false }
-  );
-
-  window.addEventListener(
-    "touchmove",
-    e => {
-      const t = e.touches[0];
-      if (t) {
-        mouse.x = t.clientX;
-        mouse.y = t.clientY;
-      }
-      e.preventDefault();
-    },
-    { passive: false }
-  );
-
-  window.addEventListener(
-    "touchend",
-    e => {
-      input.mouseDown = false;
-      input.altFire = false;
-      e.preventDefault();
-    },
-    { passive: false }
-  );
-
   let running = false;
   let gameOver = false;
   let paused = false;
@@ -868,7 +1095,11 @@
         setPaused(!paused);
       }
     }
-    if (!running && !gameOver && ["KeyW", "KeyA", "KeyS", "KeyD", "Space", "Enter"].includes(e.code)) {
+    if (
+      !running &&
+      !gameOver &&
+      ["KeyW", "KeyA", "KeyS", "KeyD", "Space", "Enter"].includes(e.code)
+    ) {
       startRun();
     }
   });
@@ -883,7 +1114,7 @@
 
   btnResume.addEventListener("click", () => setPaused(false));
   btnLang.addEventListener("click", () => {
-    lang = (lang === "en") ? "ar" : "en";
+    lang = lang === "en" ? "ar" : "en";
     applyLanguageTextsHUD();
   });
   pauseOverlay.addEventListener("click", e => {
@@ -983,9 +1214,7 @@
   }
 
   function updateHud() {
-    // Guard against null elements
     if (!hudScoreEl || !hudLevelEl || !hudComboEl || !healthBarInner || !hudAltEl) return;
-
     hudScoreEl.textContent = score.toFixed(0);
     hudLevelEl.textContent = level.toString();
     hudComboEl.textContent = combo.toFixed(0);
@@ -1133,7 +1362,7 @@
     const baseAng = Math.atan2(player.y - e.y, player.x - e.x);
     const speed = 260 + level * 10;
     for (let i = 0; i < count; i++) {
-      const spread = (count === 2 ? (i === 0 ? -0.18 : 0.18) : 0);
+      const spread = count === 2 ? (i === 0 ? -0.18 : 0.18) : 0;
       const ang = baseAng + spread;
       const bx = e.x + Math.cos(ang) * (e.radius + 6);
       const by = e.y + Math.sin(ang) * (e.radius + 6);
@@ -1161,14 +1390,7 @@
     applyLanguageGameOver(score, level, combo, highs);
   }
 
-  const bulletColors = [
-    "#00ffd5",
-    "#7eff3b",
-    "#ffe600",
-    "#ff8a00",
-    "#ff2b5c",
-    "#ff4bff"
-  ];
+  const bulletColors = ["#00ffd5", "#7eff3b", "#ffe600", "#ff8a00", "#ff2b5c", "#ff4bff"];
   function getBulletColor(level) {
     const idx = clamp(level, 0, bulletColors.length - 1);
     return bulletColors[idx];
@@ -1378,7 +1600,6 @@
       }
       addParticles(player.x, player.y, "rgba(0,255,220,0.9)", 40, 0.3, 0.7, 150, 320);
       addParticles(player.x, player.y, "rgba(255,255,255,0.9)", 22, 0.3, 0.7, 100, 260);
-
     } else if (mode === 1) {
       const count = player.altProjectiles + 8;
       const baseDamage = player.bulletDamage * 1.55;
@@ -1403,7 +1624,6 @@
       }
       addParticles(player.x, player.y, "rgba(0,255,240,0.9)", 55, 0.3, 0.7, 160, 340);
       addParticles(player.x, player.y, "rgba(255,255,255,0.95)", 26, 0.3, 0.7, 120, 280);
-
     } else if (mode === 2) {
       const count = 20 + player.altProjectiles;
       const baseDamage = player.bulletDamage * 1.75;
@@ -1430,7 +1650,6 @@
       }
       addParticles(player.x, player.y, "rgba(0,255,210,0.9)", 40, 0.25, 0.55, 180, 360);
       addParticles(player.x, player.y, "rgba(255,255,255,0.95)", 22, 0.25, 0.55, 140, 300);
-
     } else if (mode === 3) {
       const arms = 4;
       const perArm = 12 + Math.floor(player.altProjectiles / 2);
@@ -1461,7 +1680,6 @@
       }
       addParticles(player.x, player.y, "rgba(0,255,240,0.9)", 50, 0.35, 0.7, 150, 260);
       addParticles(player.x, player.y, "rgba(255,255,255,0.9)", 26, 0.35, 0.7, 120, 220);
-
     } else {
       const baseDamage = player.bulletDamage * 2.0;
       const radius = 7 + bulletLevel * 2.4;
@@ -1571,14 +1789,25 @@
     const dym = mouse.y - cy;
     player.angle = Math.atan2(dym, dxm);
 
-    let ix = 0, iy = 0;
+    let ix = 0,
+      iy = 0;
     if (input.w) iy -= 1;
     if (input.s) iy += 1;
     if (input.a) ix -= 1;
     if (input.d) ix += 1;
+
+    if (isTouchDevice && touchState.joyActive) {
+      ix = touchState.joyVectorX;
+      iy = touchState.joyVectorY;
+    }
+
     const len = Math.hypot(ix, iy) || 1;
     ix /= len;
     iy /= len;
+
+    if (isTouchDevice && (ix !== 0 || iy !== 0)) {
+      player.angle = Math.atan2(iy, ix);
+    }
 
     if (player.dashCooldown > 0) player.dashCooldown -= dt;
     if (player.dashActive > 0) {
@@ -1735,7 +1964,16 @@
               player.maxHp += 6;
               player.hp = clamp(player.hp + 12, 0, player.maxHp);
               player.maxSpeed += 10;
-              addParticles(player.x, player.y, "rgba(0,255,180,0.85)", 30, 0.4, 0.8, 160, 300);
+              addParticles(
+                player.x,
+                player.y,
+                "rgba(0,255,180,0.85)",
+                30,
+                0.4,
+                0.8,
+                160,
+                300
+              );
             }
 
             updateHud();
@@ -1972,7 +2210,6 @@
       const r = e.radius;
 
       if (e.boss) {
-        // scary boss jet
         const bodyW = r * 3.2;
         const bodyH = r * 1.7;
         ctx.beginPath();
@@ -2031,7 +2268,7 @@
         ctx.beginPath();
         ctx.moveTo(r * 0.5, -bodyH * 0.45);
         ctx.lineTo(r * 0.3, -bodyH * 1.0);
-        ctx.lineTo(r * 0.1, -bodyH * 0.45);
+        ctx.lineTo(r * 0.1, -bodyH * -0.45);
         ctx.closePath();
         ctx.fill();
       } else if (e.type === "fighter") {
@@ -2088,13 +2325,7 @@
       ctx.beginPath();
       ctx.strokeStyle = e.boss ? "rgba(255,232,138,0.95)" : "rgba(255,255,255,0.95)";
       ctx.lineWidth = 2;
-      ctx.arc(
-        ex,
-        ey,
-        e.radius + 6,
-        -Math.PI / 2,
-        -Math.PI / 2 + Math.PI * 2 * hpRatio
-      );
+      ctx.arc(ex, ey, e.radius + 6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * hpRatio);
       ctx.stroke();
     }
     ctx.restore();
@@ -2157,9 +2388,7 @@
     ctx.arc(0, 0, player.radius * 3, 0, Math.PI * 2);
     ctx.fill();
 
-    const blink = player.invulnTimer > 0
-      ? (Math.sin(performance.now() * 0.02) * 0.5 + 0.5)
-      : 1;
+    const blink = player.invulnTimer > 0 ? Math.sin(performance.now() * 0.02) * 0.5 + 0.5 : 1;
     ctx.globalAlpha = 0.45 + 0.55 * blink;
 
     const r = player.radius;
